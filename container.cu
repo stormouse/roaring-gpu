@@ -1,5 +1,6 @@
 #include "bitop.cuh"
 #include "container.cuh"
+#include "memory.cuh"
 
 namespace tora::roaring
 {
@@ -10,12 +11,7 @@ __host__ __device__ Container bitset_bitset_union(const Container& c1, const Con
     int minLen = c1.capacity < c2.capacity ? c1.capacity : c2.capacity;
     int maxLen = c1.capacity + c2.capacity - minLen;
 
-#if defined(__CUDA_ARCH__)
-    cudaMalloc((void**)&(dst.data), maxLen * sizeof(uint32_t));
-#else
-    dst.data = (uint32_t*)malloc(maxLen * sizeof(uint32_t));
-#endif
-
+    dst.data = (uint32_t*)custom_malloc(maxLen * sizeof(uint32_t));
     dst.type = ContainerType::Bitset;
     dst.capacity = maxLen;
 
@@ -38,12 +34,7 @@ __host__ __device__ Container bitset_bitset_intersect(const Container& c1, const
     Container dst;
     int minLen = c1.capacity < c2.capacity ? c1.capacity : c2.capacity;
 
-#if defined(__CUDA_ARCH__)
-    cudaMalloc((void**)&(dst.data), minLen * sizeof(uint32_t));
-#else
-    dst.data = (uint32_t*)malloc(minLen * sizeof(uint32_t));
-#endif
-
+    dst.data = (uint32_t*)custom_malloc(minLen * sizeof(uint32_t));
     dst.type = ContainerType::Bitset;
     dst.capacity = minLen;
 
@@ -70,20 +61,12 @@ __host__ __device__ Container array_bitset_union(const Container& c1, const Cont
         requiredCapacity = (arrayElements[arr.cardinality - 1] + sizeof(uint32_t) - 1) / sizeof(uint32_t);
     }
 
-#if defined(__CUDA_ARCH__)
-    cudaMalloc((void**)&(dst.data), requiredCapacity * sizeof(uint32_t));
-#else
-    dst.data = (uint32_t*)malloc(requiredCapacity * sizeof(uint32_t));
-#endif
+    dst.data = (uint32_t*)custom_malloc(requiredCapacity * sizeof(uint32_t));
 
-#if defined(__CUDA_ARCH__)
     for (int i = 0; i < bitset.capacity; i++)
     {
         dst.data[i] = bitset.data[i];
     }
-#else
-    memcpy(dst.data, bitset.data, bitset.capacity * sizeof(uint32_t));
-#endif
 
     dst.type = ContainerType::Bitset;
     dst.capacity = requiredCapacity;
@@ -112,12 +95,7 @@ __host__ __device__ Container array_bitset_intersect(const Container& c1, const 
     uint16_t* arrayElements = (uint16_t*)arr.data;
     int requiredCapacity = arr.capacity;
 
-#if defined(__CUDA_ARCH__)
-    cudaMalloc((void**)&(dst.data), requiredCapacity * sizeof(uint32_t));
-#else
-    dst.data = (uint32_t*)malloc(requiredCapacity * sizeof(uint32_t));
-#endif
-
+    dst.data = (uint32_t*)custom_malloc(requiredCapacity * sizeof(uint32_t));
     dst.type = ContainerType::Array;
     dst.capacity = requiredCapacity;
     uint16_t* dstElements = (uint16_t*)dst.data;
@@ -146,12 +124,7 @@ __host__ __device__ Container array_array_union(const Container& c1, const Conta
     uint16_t* a2 = (uint16_t*)c2.data;
     int requiredCapacity = (c1.cardinality + c2.cardinality) * 2;  // `sizeof(uint32_t) / sizeof(uint16_t)`
 
-#if defined(__CUDA_ARCH__)
-    cudaMalloc((void**)&(dst.data), requiredCapacity * sizeof(uint32_t));
-#else
-    dst.data = (uint32_t*)malloc(requiredCapacity * sizeof(uint32_t));
-#endif
-
+    dst.data = (uint32_t*)custom_malloc(requiredCapacity * sizeof(uint32_t));
     dst.type = ContainerType::Array;
     dst.capacity = requiredCapacity;
 
@@ -200,12 +173,7 @@ __host__ __device__ Container array_array_intersect(const Container& c1, const C
     int requiredCapacity = (c1.cardinality < c2.cardinality ? c1.cardinality : c2.cardinality) *
                            2;  // `sizeof(uint32_t) / sizeof(uint16_t)`
 
-#if defined(__CUDA_ARCH__)
-    cudaMalloc((void**)&(dst.data), requiredCapacity * sizeof(uint32_t));
-#else
-    dst.data = (uint32_t*)malloc(requiredCapacity * sizeof(uint32_t));
-#endif
-
+    dst.data = (uint32_t*)custom_malloc(requiredCapacity * sizeof(uint32_t));
     dst.type = ContainerType::Array;
     dst.capacity = requiredCapacity;
 
