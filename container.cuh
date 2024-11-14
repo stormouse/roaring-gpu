@@ -26,5 +26,10 @@ __host__ __device__ Container array_bitset_union(const Container& c1, const Cont
 __host__ __device__ Container array_bitset_intersect(const Container& c1, const Container& c2);
 __host__ __device__ Container array_array_union(const Container& c1, const Container& c2);
 __host__ __device__ Container array_array_intersect(const Container& c1, const Container& c2);
+__host__ __device__ Container cloneContainer(const Container& original);
+__host__ __device__ bool bitset_getBit(const Container& c, int offset);
+__host__ __device__ void bitset_setBit(Container& c, int offset, bool value);
+__host__ __device__ bool array_getBit(const Container& c, int offset);
+__host__ __device__ void array_setBit(Container& c, int offset, bool value);
 
 }  // namespace tora::roaring

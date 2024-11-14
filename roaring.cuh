@@ -75,6 +75,7 @@ RoaringBitmapFlat* createBitmap();
 
 __global__ void bitmapUnion(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, const RoaringBitmapFlat& t);
 __global__ void bitmapIntersect(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, const RoaringBitmapFlat& t);
-
+__global__ void bitmapGetBit(const RoaringBitmapFlat& a, int pos, int* outValue);
+__global__ void bitmapSetBit(const RoaringBitmapFlat& a, int pos, bool value);
 
 }  // namespace tora::roaring
