@@ -5,7 +5,7 @@
 namespace tora::roaring
 {
 
-enum class ContainerType
+enum class ContainerType : uint8_t
 {
     Bitset = 1,
     Array = 2,
@@ -14,7 +14,7 @@ enum class ContainerType
 
 struct Container
 {
-    ContainerType type;
+    ContainerType type = ContainerType::Array;
     uint32_t cardinality = 0;
     uint32_t capacity = 0;  // capacity in number of uint32
     uint32_t* data = nullptr;

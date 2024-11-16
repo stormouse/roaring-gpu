@@ -17,10 +17,15 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(roaring-gpu
     main.cu
+    container.cu
+    roaring.cu
+    bitmap_example.cu
     )
 
 set_target_properties(roaring-gpu PROPERTIES 
     CUDA_ARCHITECTURES "89"
+    CUDA_SEPARABLE_COMPILATION ON
+    POSITION_INDEPENDENT_CODE TRUE
     )
 
 target_include_directories(roaring-gpu INTERFACE
@@ -46,10 +51,15 @@ add_executable(
     roaring-test
     bitop_ut.cu
     container.cu
+    roaring.cu
 )
 target_link_libraries(
     roaring-test
     GTest::gtest_main
+)
+set_target_properties(roaring-test PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+    POSITION_INDEPENDENT_CODE TRUE
 )
 include(GoogleTest)
 gtest_discover_tests(roaring-test)

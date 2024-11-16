@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "bitop.cuh"
 #include "container.cuh"
+#include "roaring.cuh"
 
 namespace tora::roaring
 {
@@ -32,7 +33,7 @@ TEST(BitOpTest, CountTrailingZeros)
 
 class ContainerTest : public testing::Test
 {
-   protected:
+protected:
     void TearDown() override
     {
         if (c1.data != nullptr)
@@ -51,7 +52,7 @@ class ContainerTest : public testing::Test
         }
     }
 
-   public:
+public:
     Container c1;
     Container c2;
     Container result;
@@ -268,6 +269,92 @@ TEST_F(ContainerTest, ArrayArrayIntersect)
     EXPECT_EQ(100, arrayElements[3]);
     EXPECT_EQ(128, arrayElements[4]);
     EXPECT_EQ(156, arrayElements[5]);
+}
+
+class BitmapTest : public testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        b1.containers = new Container[65536];
+        b2.containers = new Container[65536];
+        b3.containers = new Container[65536];
+
+        for (int i = 0; i < 65535; i++)
+        {
+            b1.containers[i].type = b2.containers[i].type = b3.containers[i].type = ContainerType::Array;
+        }
+    }
+
+    void TearDown() override
+    {
+        if (b1.containers != nullptr)
+        {
+            for (int i = 0; i < 65535; i++)
+            {
+                if (b1.containers[i].data != nullptr)
+                {
+                    free(b1.containers[i].data);
+                }
+            }
+            delete[] b1.containers;
+        }
+
+        if (b2.containers != nullptr)
+        {
+            for (int i = 0; i < 65535; i++)
+            {
+                if (b2.containers[i].data != nullptr)
+                {
+                    free(b2.containers[i].data);
+                }
+            }
+            delete[] b2.containers;
+        }
+
+        if (b3.containers != nullptr)
+        {
+            for (int i = 0; i < 65535; i++)
+            {
+                if (b3.containers[i].data != nullptr)
+                {
+                    free(b3.containers[i].data);
+                }
+            }
+            delete[] b3.containers;
+        }
+    }
+
+public:
+    RoaringBitmapFlat b1;
+    RoaringBitmapFlat b2;
+    RoaringBitmapFlat b3;
+};
+
+TEST_F(BitmapTest, BitmapGetSet)
+{
+    for (int i = 0; i < 64; i++)
+    {
+        b1.setBit(10251 + i, true);
+    }
+
+    for (int i = 0; i < 64; i++)
+    {
+        b2.setBit(10271 + i, true);
+    }
+
+    EXPECT_TRUE(b1.getBit(10253));
+    EXPECT_TRUE(b1.getBit(10254));
+    EXPECT_TRUE(b1.getBit(10255));
+    EXPECT_FALSE(b1.getBit(51));
+    EXPECT_FALSE(b1.getBit(17959120));
+    EXPECT_FALSE(b1.getBit(2179120));
+    EXPECT_TRUE(b2.getBit(10271));
+    EXPECT_TRUE(b2.getBit(10272));
+    EXPECT_TRUE(b2.getBit(10299));
+    EXPECT_FALSE(b2.getBit(10254));
+    EXPECT_FALSE(b2.getBit(16));
+    EXPECT_FALSE(b2.getBit(9));
 }
 
 };  // namespace tora::roaring
