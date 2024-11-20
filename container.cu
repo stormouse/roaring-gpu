@@ -27,10 +27,6 @@ __host__ __device__ Container bitset_bitset_union(const Container& c1, const Con
     for (int i = 0; i < minLen; i++)
     {
         dst.data[i] = c1.data[i] | c2.data[i];
-        if (c1.data[i] != 0 || c2.data[i] != 0)
-        {
-            printf("[%d]: %u = %u | %u\n", i, dst.data[i], c1.data[i], c2.data[i]);
-        }
         dst.cardinality += bitsSet(dst.data[i]);
     }
 
@@ -38,10 +34,6 @@ __host__ __device__ Container bitset_bitset_union(const Container& c1, const Con
     for (int i = minLen; i < maxLen; i++)
     {
         dst.data[i] = r->data[i];
-        if (r->data[i] != 0)
-        {
-            printf("[%d]: %u = %u\n", i, dst.data[i], r->data[i]);
-        }
         dst.cardinality += bitsSet(dst.data[i]);
     }
 
@@ -269,7 +261,7 @@ __host__ __device__ Container cloneContainer(const Container& original)
 
 __host__ __device__ bool bitset_getBit(const Container& c, int offset)
 {
-    int index = offset >> 5;
+    int index = (offset & 0xFFFF) >> 5;
     if (c.capacity <= index)
         return false;
     return (c.data[index] & (1 << (offset & 31))) != 0;
@@ -277,7 +269,7 @@ __host__ __device__ bool bitset_getBit(const Container& c, int offset)
 
 __host__ __device__ void bitset_setBit(Container& c, int offset, bool value)
 {
-    int index = offset >> 5;
+    int index = (offset & 0xFFFF) >> 5;
     assert(c.capacity > index);
 
     if ((c.data[index] & (1 << (offset & 31))) == 0)

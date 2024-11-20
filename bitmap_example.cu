@@ -1,6 +1,7 @@
 #include <iostream>
 #include "cuda_common.cuh"
 #include "roaring.cuh"
+#include "memory.cuh"
 
 using namespace tora::roaring;
 
@@ -82,4 +83,62 @@ void testBitmapIntersect()
     //     cudaDeviceSynchronize();
     //     std::cout << i << ": " << *outputValue << "\n";
     // }
+}
+
+struct DeviceObject
+{
+    char* deviceData;
+};
+
+__global__ void createString1(DeviceObject& devObj)
+{
+    devObj.deviceData = (char*)tora::custom_malloc(8 * sizeof(char));
+    devObj.deviceData[0] = 'h';
+    devObj.deviceData[1] = 'e';
+    devObj.deviceData[2] = 'l';
+    devObj.deviceData[3] = 'l';
+    devObj.deviceData[4] = 'o';
+    devObj.deviceData[5] = '\0';
+}
+
+__global__ void createString2(DeviceObject& devObj)
+{
+    devObj.deviceData = (char*)tora::custom_malloc(8 * sizeof(char));
+    devObj.deviceData[0] = 'w';
+    devObj.deviceData[1] = 'o';
+    devObj.deviceData[2] = 'r';
+    devObj.deviceData[3] = 'l';
+    devObj.deviceData[4] = 'd';
+    devObj.deviceData[5] = '\0';
+}
+
+
+__global__ void printString(const DeviceObject& devObj)
+{
+    printf("%s\n", devObj.deviceData);
+}
+
+__global__ void freeString(DeviceObject& devObj)
+{
+    tora::custom_free(devObj.deviceData);
+}
+
+void malloc_test1()
+{
+    DeviceObject* devObj;
+    checkCuda(cudaMalloc((void**)&devObj, sizeof(DeviceObject)));
+
+    createString1<<<1,1>>>(*devObj);
+    printString<<<1,1>>>(*devObj);
+    freeString<<<1,1>>>(*devObj);
+}
+
+void malloc_test2()
+{
+    DeviceObject* devObj;
+    checkCuda(cudaMalloc((void**)&devObj, sizeof(DeviceObject)));
+
+    createString2<<<1,1>>>(*devObj);
+    printString<<<1,1>>>(*devObj);
+    freeString<<<1,1>>>(*devObj);
 }
