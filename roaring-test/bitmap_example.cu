@@ -1,7 +1,7 @@
 #include <iostream>
-#include "cuda_common.cuh"
-#include "roaring.cuh"
-#include "memory.cuh"
+#include <cuda_common.cuh>
+#include <roaring.cuh>
+#include <memory.cuh>
 
 using namespace tora::roaring;
 
@@ -23,8 +23,8 @@ void testBitmapUnion()
 
     for (int i = 0; i < 8; i++)
     {
-        bitmapSetBit<<<1, 1>>>(*bitmap1.devPtr(), 66017 + i, true);
-        bitmapSetBit<<<1, 1>>>(*bitmap2.devPtr(), 66023 + i, true);
+        bitmap1.setBit(66017 + i, true);
+        bitmap2.setBit(66023 + i, true);
     }
 
     printContainerInfo<<<1, 1>>>(*bitmap1.devPtr(), 1);
@@ -38,15 +38,6 @@ void testBitmapUnion()
     printContainerInfo<<<1, 1>>>(*result.devPtr(), 1);
 
     cudaDeviceSynchronize();
-
-    // bool* outputValue;
-    // checkCuda(cudaMallocHost((void**)&outputValue, sizeof(bool)));
-    // for (int i = 66014; i <= 66037; i++)
-    // {
-    //     bitmapGetBit<<<1, 1>>>(*result.devPtr(), i, outputValue);
-    //     cudaDeviceSynchronize();
-    //     std::cout << i << ": " << *outputValue << "\n";
-    // }
 }
 
 void testBitmapIntersect()
@@ -59,8 +50,8 @@ void testBitmapIntersect()
 
     for (int i = 0; i < 8; i++)
     {
-        bitmapSetBit<<<1, 1>>>(*bitmap1.devPtr(), 66017 + i, true);
-        bitmapSetBit<<<1, 1>>>(*bitmap2.devPtr(), 66023 + i, true);
+        bitmap1.setBit(66017 + i, true);
+        bitmap2.setBit(66023 + i, true);
     }
 
     printContainerInfo<<<1, 1>>>(*bitmap1.devPtr(), 1);
@@ -74,15 +65,6 @@ void testBitmapIntersect()
     printContainerInfo<<<1, 1>>>(*result.devPtr(), 1);
 
     cudaDeviceSynchronize();
-
-    // bool* outputValue;
-    // checkCuda(cudaMallocHost((void**)&outputValue, sizeof(bool)));
-    // for (int i = 66014; i <= 66037; i++)
-    // {
-    //     bitmapGetBit<<<1, 1>>>(*result.devPtr(), i, outputValue);
-    //     cudaDeviceSynchronize();
-    //     std::cout << i << ": " << *outputValue << "\n";
-    // }
 }
 
 struct DeviceObject

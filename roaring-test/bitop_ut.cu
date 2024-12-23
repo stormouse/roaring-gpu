@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
-#include "bitop.cuh"
-#include "container.cuh"
-#include "roaring.cuh"
+#include <bitop.cuh>
+#include <container.cuh>
+#include <roaring.cuh>
 
 namespace tora::roaring
 {

@@ -215,4 +215,18 @@ __host__ __device__ void RoaringBitmapFlat::setBit(int pos, bool value)
     }
 }
 
+bool RoaringBitmapDevice::getBit(int pos)
+{
+    bool* outputValue;
+    checkCuda(cudaMallocHost((void**)&outputValue, sizeof(bool)));
+    bitmapGetBit<<<1, 1>>>(*deviceData_, pos, outputValue);
+    cudaDeviceSynchronize();
+    return outputValue;
+}
+
+void RoaringBitmapDevice::setBit(int pos, bool value)
+{
+    bitmapSetBit<<<1, 1>>>(*deviceData_, pos, value);
+}
+
 }  // namespace tora::roaring

@@ -9,7 +9,7 @@ namespace tora::roaring
 
 struct RoaringBitmapFlat
 {
-    Container* containers; // size = 65536
+    Container* containers;  // size = 65536
     __host__ __device__ bool getBit(int pos) const;
     __host__ __device__ void setBit(int pos, bool value);
 };
@@ -20,8 +20,12 @@ public:
     RoaringBitmapDevice();
     explicit RoaringBitmapDevice(int stream);
     ~RoaringBitmapDevice();
+    RoaringBitmapDevice(const RoaringBitmapDevice&) = default;
+    RoaringBitmapDevice(RoaringBitmapDevice&&) = default;
 
     inline RoaringBitmapFlat* devPtr() { return deviceData_; }
+    bool getBit(int pos);
+    void setBit(int pos, bool value);
 
 private:
     RoaringBitmapFlat* deviceData_;
