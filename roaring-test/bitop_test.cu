@@ -6,8 +6,6 @@
 namespace tora::roaring
 {
 
-using namespace tora::roaring;
-
 TEST(BitOpTest, CountBitsSet)
 {
     EXPECT_EQ(3, bitsSet(0b01010001));

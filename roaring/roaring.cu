@@ -26,13 +26,21 @@ RoaringBitmapDevice::RoaringBitmapDevice(int stream)
     initBitmapContainers<<<blocksPerGrid, threadsPerBlock, stream>>>(deviceData_);
 }
 
+void RoaringBitmapDevice::free()
+{
+    if (deviceData_ != nullptr)
+    {
+        int threadsPerBlock = 256;
+        int blocksPerGrid = (BitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
+        freeBitmapContainers<<<blocksPerGrid, threadsPerBlock>>>(deviceData_);
+        freeFlatContainers<<<1, 1>>>(deviceData_);
+        checkCuda(cudaFree(deviceData_));
+    }
+}
+
 RoaringBitmapDevice::~RoaringBitmapDevice()
 {
-    int threadsPerBlock = 256;
-    int blocksPerGrid = (BitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
-    freeBitmapContainers<<<blocksPerGrid, threadsPerBlock>>>(deviceData_);
-    freeFlatContainers<<<1, 1>>>(deviceData_);
-    checkCuda(cudaFree(deviceData_));
+    free();
 }
 
 __global__ void allocateFlatContainers(RoaringBitmapFlat& a)
@@ -142,7 +150,7 @@ __global__ void bitmapIntersect(const RoaringBitmapFlat& a, const RoaringBitmapF
     }
 }
 
-__global__ void bitmapGetBit(const RoaringBitmapFlat& a, int pos, bool* outValue)
+__global__ void bitmapGetBit(const RoaringBitmapFlat& a, uint32_t pos, bool* outValue)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx == 0)
@@ -151,7 +159,7 @@ __global__ void bitmapGetBit(const RoaringBitmapFlat& a, int pos, bool* outValue
     }
 }
 
-__global__ void bitmapSetBit(RoaringBitmapFlat& a, int pos, bool value)
+__global__ void bitmapSetBit(RoaringBitmapFlat& a, uint32_t pos, bool value)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx == 0)
@@ -160,11 +168,11 @@ __global__ void bitmapSetBit(RoaringBitmapFlat& a, int pos, bool value)
     }
 }
 
-__host__ __device__ bool RoaringBitmapFlat::getBit(int pos) const
+__host__ __device__ bool RoaringBitmapFlat::getBit(uint32_t pos) const
 {
     int containerIndex = (pos >> 16);
     int offset = pos & 0xFFFF;
-    if (containers[containerIndex].cardinality == 0)
+    if (containers[containerIndex].data == nullptr || containers[containerIndex].cardinality == 0)
     {
         return false;
     }
@@ -186,20 +194,15 @@ __host__ __device__ bool RoaringBitmapFlat::getBit(int pos) const
     return false;
 }
 
-__host__ __device__ void RoaringBitmapFlat::setBit(int pos, bool value)
+__host__ __device__ void RoaringBitmapFlat::setBit(uint32_t pos, bool value)
 {
     int containerIndex = (pos >> 16);
     int offset = pos & 0xFFFF;
     if (containers[containerIndex].data == nullptr)
     {
-        // TODO: save me from my laziness
         containers[containerIndex].cardinality = 0;
-        containers[containerIndex].type = ContainerType::Bitset;
+        containers[containerIndex].type = ContainerType::Array;
         containers[containerIndex].data = (uint32_t*)custom_malloc(sizeof(uint32_t) * 2048);
-        for (int i = 0; i < 2048; i++)
-        {
-            containers[containerIndex].data[i] = 0;
-        }
         containers[containerIndex].capacity = 2048;
     }
     Container& c = containers[containerIndex];
@@ -215,16 +218,18 @@ __host__ __device__ void RoaringBitmapFlat::setBit(int pos, bool value)
     }
 }
 
-bool RoaringBitmapDevice::getBit(int pos)
+bool RoaringBitmapDevice::getBit(uint32_t pos)
 {
-    bool* outputValue;
-    checkCuda(cudaMallocHost((void**)&outputValue, sizeof(bool)));
-    bitmapGetBit<<<1, 1>>>(*deviceData_, pos, outputValue);
+    bool outPut;
+    bool* outputDevice;
+    checkCuda(cudaMallocHost((void**)&outputDevice, sizeof(bool)));
+    bitmapGetBit<<<1, 1>>>(*deviceData_, pos, outputDevice);
+    checkCuda(cudaMemcpy(&outPut, outputDevice, sizeof(bool), cudaMemcpyDeviceToHost));
     cudaDeviceSynchronize();
-    return outputValue;
+    return outPut;
 }
 
-void RoaringBitmapDevice::setBit(int pos, bool value)
+void RoaringBitmapDevice::setBit(uint32_t pos, bool value)
 {
     bitmapSetBit<<<1, 1>>>(*deviceData_, pos, value);
 }

@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <random>
 #include <vector>
+#include "bitop.cuh"
 #include "cuda_common.cuh"
 #include "memory.cuh"
 #include "roaring_helper.cuh"
@@ -27,7 +28,12 @@ __global__ void buildRandomArrayContainers(
         dst.data = (uint32_t*)custom_malloc(dst.capacity * sizeof(uint32_t));
         dst.type = ContainerType::Array;
         dst.cardinality = 0;
- 
+        
+        for (int i = 0; i < dst.capacity; i++)
+        {
+            dst.data[i] = 0;
+        }
+
         for (int i = 0; i < numElements; i++)
         {
             array_setBit(dst, i, true);
@@ -47,14 +53,16 @@ __global__ void buildRandomBitsetContainers(RoaringBitmapFlat* bitmap, int* cont
         curand_init(42, idx, 0, &state);
 
         Container& dst = bitmap->containers[containerIndexes[idx]];
-        dst.data = (uint32_t*)custom_malloc(8192 * sizeof(uint32_t));
+        dst.capacity = 2048;
+        dst.data = (uint32_t*)custom_malloc(dst.capacity * sizeof(uint32_t));
         dst.type = ContainerType::Bitset;
-        dst.capacity = 8192;
         dst.cardinality = 0;
 
-        for (int i = 0; i < 8192; i++)
+        for (int i = 0; i < dst.capacity; i++)
         {
-            dst.data[i] = (uint32_t)(curand_uniform(&state) * (uint64_t)(UINT_MAX));
+            uint32_t value = (uint32_t)(curand_uniform(&state) * (uint64_t)(UINT_MAX));
+            dst.data[i] = value;
+            dst.cardinality += bitsSet(value);
         }
 
         idx += gridDim.x * blockDim.x;
@@ -126,6 +134,9 @@ RoaringBitmapDevice getRandomRoaringBitmap(
         bitmap.devPtr(), arrayIndexes_d, arrayIndexes.size(), arrayElementLow, arrayElementHigh);
     buildRandomBitsetContainers<<<blocksPerGrid, threadsPerBlock>>>(
         bitmap.devPtr(), bitsetIndexes_d, bitsetIndexes.size());
+
+    checkCuda(cudaFree(arrayIndexes_d));
+    checkCuda(cudaFree(bitsetIndexes_d));
 
     cudaDeviceSynchronize();
 

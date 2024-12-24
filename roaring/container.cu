@@ -261,7 +261,7 @@ __host__ __device__ Container cloneContainer(const Container& original)
 
 __host__ __device__ bool bitset_getBit(const Container& c, int offset)
 {
-    int index = (offset & 0xFFFF) >> 5;
+    int index = offset >> 5;
     if (c.capacity <= index)
         return false;
     return (c.data[index] & (1 << (offset & 31))) != 0;
@@ -269,12 +269,13 @@ __host__ __device__ bool bitset_getBit(const Container& c, int offset)
 
 __host__ __device__ void bitset_setBit(Container& c, int offset, bool value)
 {
-    int index = (offset & 0xFFFF) >> 5;
+    int index = offset >> 5;
+    int bit = 1 << (offset & 0x1F);
     assert(c.capacity > index);
 
-    if ((c.data[index] & (1 << (offset & 31))) == 0)
+    if ((c.data[index] & bit) == 0)
     {
-        c.data[index] |= (1 << (offset & 31));
+        c.data[index] |= bit;
         c.cardinality++;
     }
 }
@@ -368,22 +369,20 @@ __host__ __device__ static void removeElement(uint16_t* arr, uint32_t& size, uin
 __host__ __device__ bool array_getBit(const Container& c, int offset)
 {
     uint16_t* arr = (uint16_t*)c.data;
-    int pos = offset & 65535;
-    int index = binarySearch(arr, c.cardinality, pos);
+    int index = binarySearch(arr, c.cardinality, offset);
     return index != -1;
 }
 
 __host__ __device__ void array_setBit(Container& c, int offset, bool value)
 {
-    uint16_t pos = offset & 65535;
     uint16_t* arr = (uint16_t*)c.data;
     if (value)
     {
-        insertUnique(arr, c.cardinality, c.capacity * 2, pos);
+        insertUnique(arr, c.cardinality, c.capacity * 2, offset);
     }
     else
     {
-        removeElement(arr, c.cardinality, pos);
+        removeElement(arr, c.cardinality, offset);
     }
 }
 

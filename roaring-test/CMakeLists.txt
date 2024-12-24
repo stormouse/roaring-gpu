@@ -1,7 +1,7 @@
 add_executable(
     roaring-test
-    bitop_ut.cu
-    bitmap_example.cu
+    bitop_test.cu
+    bitmap_test.cu
 )
 
 target_include_directories(
