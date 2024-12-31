@@ -1,112 +1,47 @@
+#include <stdio.h>
 #include <cassert>
 #include "bitop.cuh"
 #include "container.cuh"
 #include "memory.cuh"
-#include <stdio.h>
 
 namespace tora::roaring
 {
 
+__host__ __device__ void Container::clear()
+{
+    cardinality = 0;
+}
+
+__host__ __device__ void Container::zero()
+{
+    cardinality = 0;
+    memset(data, 0, sizeof(uint32_t) * capacity);
+}
+
 __host__ __device__ Container bitset_bitset_union(const Container& c1, const Container& c2)
 {
     Container dst;
-
-    if (c1.cardinality == 0 && c2.cardinality == 0)
-    {
-        return dst;
-    }
-
-    int minLen = c1.capacity < c2.capacity ? c1.capacity : c2.capacity;
-    int maxLen = c1.capacity + c2.capacity - minLen;
-
-    dst.data = (uint32_t*)custom_malloc(maxLen * sizeof(uint32_t));
-    dst.type = ContainerType::Bitset;
-    dst.capacity = maxLen;
-    dst.cardinality = 0;
-
-    for (int i = 0; i < minLen; i++)
-    {
-        dst.data[i] = c1.data[i] | c2.data[i];
-        dst.cardinality += bitsSet(dst.data[i]);
-    }
-
-    const Container* r = c1.capacity > minLen ? &c1 : &c2;
-    for (int i = minLen; i < maxLen; i++)
-    {
-        dst.data[i] = r->data[i];
-        dst.cardinality += bitsSet(dst.data[i]);
-    }
-
+    dst.data = (uint32_t*)custom_malloc(65536);
+    dst.capacity = 65536 / static_cast<int>(sizeof(uint32_t));
+    bitset_bitset_union(c1, c2, dst);
     return dst;
 }
 
 __host__ __device__ Container bitset_bitset_intersect(const Container& c1, const Container& c2)
 {
     Container dst;
-
-    if (c1.cardinality == 0 || c2.cardinality == 0)
-    {
-        return dst;
-    }
-
-    int minLen = c1.capacity < c2.capacity ? c1.capacity : c2.capacity;
-
-    dst.data = (uint32_t*)custom_malloc(minLen * sizeof(uint32_t));
-    dst.type = ContainerType::Bitset;
-    dst.capacity = minLen;
-    dst.cardinality = 0;
-
-    for (int i = 0; i < minLen; i++)
-    {
-        dst.data[i] = c1.data[i] & c2.data[i];
-        dst.cardinality += bitsSet(dst.data[i]);
-    }
-
-    // TODO: convert it to array container if cardinality < 4K.
-
+    dst.data = (uint32_t*)custom_malloc(65536);
+    dst.capacity = 65536 / static_cast<int>(sizeof(uint32_t));
+    bitset_bitset_intersect(c1, c2, dst);
     return dst;
 }
 
 __host__ __device__ Container array_bitset_union(const Container& c1, const Container& c2)
 {
     Container dst;
-
-    if (c1.cardinality == 0 && c2.cardinality == 0)
-    {
-        return dst;
-    }
-
-    const Container& arr = c1.type == ContainerType::Array ? c1 : c2;
-    const Container& bitset = c1.type == ContainerType::Bitset ? c1 : c2;
-
-    uint16_t* arrayElements = (uint16_t*)arr.data;
-    int requiredCapacity = bitset.capacity;
-    if (requiredCapacity * sizeof(uint32_t) < arrayElements[arr.cardinality - 1])
-    {
-        requiredCapacity = (arrayElements[arr.cardinality - 1] + sizeof(uint32_t) - 1) / sizeof(uint32_t);
-    }
-
-    dst.data = (uint32_t*)custom_malloc(requiredCapacity * sizeof(uint32_t));
-
-    for (int i = 0; i < bitset.capacity; i++)
-    {
-        dst.data[i] = bitset.data[i];
-    }
-
-    dst.type = ContainerType::Bitset;
-    dst.capacity = requiredCapacity;
-
-    int j = 0;
-    for (int i = 0; i < arr.cardinality; i++)
-    {
-        uint16_t element = arrayElements[i];
-        int offset = element >> 5;
-        int bitpos = element & 31;
-        dst.data[offset] |= 1 << bitpos;
-        j += 1 - ((bitset.data[offset] & (1 << bitpos)) > 0);
-    }
-
-    dst.cardinality = bitset.cardinality + j;
+    dst.data = (uint32_t*)custom_malloc(65536);
+    dst.capacity = 65536 / static_cast<int>(sizeof(uint32_t));
+    array_bitset_union(c1, c2, dst);
 
     return dst;
 }
@@ -114,133 +49,27 @@ __host__ __device__ Container array_bitset_union(const Container& c1, const Cont
 __host__ __device__ Container array_bitset_intersect(const Container& c1, const Container& c2)
 {
     Container dst;
-
-    if (c1.cardinality == 0 && c2.cardinality == 0)
-    {
-        return dst;
-    }
-
-    const Container& arr = c1.type == ContainerType::Array ? c1 : c2;
-    const Container& bitset = c1.type == ContainerType::Bitset ? c1 : c2;
-
-    uint16_t* arrayElements = (uint16_t*)arr.data;
-    int requiredCapacity = arr.capacity;
-
-    dst.data = (uint32_t*)custom_malloc(requiredCapacity * sizeof(uint32_t));
-    dst.type = ContainerType::Array;
-    dst.capacity = requiredCapacity;
-    uint16_t* dstElements = (uint16_t*)dst.data;
-
-    int j = 0;
-    for (int i = 0; i < arr.cardinality; i++)
-    {
-        uint16_t element = arrayElements[i];
-        int offset = element >> 5;
-        int bitpos = element & 31;
-        if (bitset.data[offset] & (1 << bitpos))
-        {
-            dstElements[j++] = element;
-        }
-    }
-
-    dst.cardinality = j;
-
+    dst.data = (uint32_t*)custom_malloc(65536);
+    dst.capacity = 65536 / static_cast<int>(sizeof(uint32_t));
+    array_bitset_intersect(c1, c2, dst);
     return dst;
 }
 
 __host__ __device__ Container array_array_union(const Container& c1, const Container& c2)
 {
     Container dst;
-
-    if (c1.cardinality == 0 && c2.cardinality == 0)
-    {
-        return dst;
-    }
-    uint16_t* a1 = (uint16_t*)c1.data;
-    uint16_t* a2 = (uint16_t*)c2.data;
-    int requiredCapacity = (c1.cardinality + c2.cardinality) * 2;  // `sizeof(uint32_t) / sizeof(uint16_t)`
-
-    dst.data = (uint32_t*)custom_malloc(requiredCapacity * sizeof(uint32_t));
-    dst.type = ContainerType::Array;
-    dst.capacity = requiredCapacity;
-
-    uint16_t* dstElements = (uint16_t*)dst.data;
-    int i = 0, j = 0, k = 0;
-    while (i < c1.cardinality && j < c2.cardinality)
-    {
-        if (a1[i] == a2[j])
-        {
-            dstElements[k++] = a1[i];
-            i++;
-            j++;
-        }
-        else if (a1[i] < a2[j])
-        {
-            dstElements[k++] = a1[i++];
-        }
-        else
-        {
-            dstElements[k++] = a2[j++];
-        }
-    }
-
-    while (i < c1.cardinality)
-    {
-        dstElements[k++] = a1[i++];
-    }
-
-    while (j < c2.cardinality)
-    {
-        dstElements[k++] = a2[j++];
-    }
-
-    dst.cardinality = k;
-
-    // TODO: convert to bitset when cardinality is high
-
+    dst.data = (uint32_t*)custom_malloc(65536);
+    dst.capacity = 65536 / static_cast<int>(sizeof(uint32_t));
+    array_array_union(c1, c2, dst);
     return dst;
 }
 
 __host__ __device__ Container array_array_intersect(const Container& c1, const Container& c2)
 {
     Container dst;
-
-    if (c1.cardinality == 0 && c2.cardinality == 0)
-    {
-        return dst;
-    }
-
-    uint16_t* a1 = (uint16_t*)c1.data;
-    uint16_t* a2 = (uint16_t*)c2.data;
-    int requiredCapacity = (c1.cardinality < c2.cardinality ? c1.cardinality : c2.cardinality) *
-                           2;  // `sizeof(uint32_t) / sizeof(uint16_t)`
-
-    dst.data = (uint32_t*)custom_malloc(requiredCapacity * sizeof(uint32_t));
-    dst.type = ContainerType::Array;
-    dst.capacity = requiredCapacity;
-
-    uint16_t* dstElements = (uint16_t*)dst.data;
-    int i = 0, j = 0, k = 0;
-    while (i < c1.cardinality && j < c2.cardinality)
-    {
-        if (a1[i] == a2[j])
-        {
-            dstElements[k++] = a1[i];
-            i++;
-            j++;
-        }
-        else if (a1[i] < a2[j])
-        {
-            a1[i++];
-        }
-        else
-        {
-            a2[j++];
-        }
-    }
-
-    dst.cardinality = k;
-
+    dst.data = (uint32_t*)custom_malloc(65536);
+    dst.capacity = 65536 / static_cast<int>(sizeof(uint32_t));
+    array_array_intersect(c1, c2, dst);
     return dst;
 }
 
@@ -384,6 +213,256 @@ __host__ __device__ void array_setBit(Container& c, int offset, bool value)
     {
         removeElement(arr, c.cardinality, offset);
     }
+}
+
+__host__ __device__ void bitset_bitset_union(const Container& a, const Container& b, Container& dst)
+{
+    dst.clear();
+
+    if (a.cardinality == 0 && b.cardinality == 0)
+    {
+        return;
+    }
+
+    int minLen = min(a.capacity, b.capacity);
+    int maxLen = a.capacity + b.capacity - minLen;
+    assert(dst.capacity >= maxLen);
+
+    dst.type = ContainerType::Bitset;
+    dst.cardinality = 0;
+
+    for (int i = 0; i < minLen; i++)
+    {
+        dst.data[i] = a.data[i] | b.data[i];
+        dst.cardinality += bitsSet(dst.data[i]);
+    }
+
+    const Container* r = a.capacity > minLen ? &a : &b;
+    for (int i = minLen; i < maxLen; i++)
+    {
+        dst.data[i] = r->data[i];
+        dst.cardinality += bitsSet(dst.data[i]);
+    }
+}
+
+__host__ __device__ void bitset_bitset_intersect(const Container& a, const Container& b, Container& dst)
+{
+    dst.clear();
+
+    if (a.cardinality == 0 || b.cardinality == 0)
+    {
+        return;
+    }
+
+    int len = min(a.capacity, b.capacity);
+    assert(dst.capacity >= len);
+
+    dst.type = ContainerType::Bitset;
+    dst.cardinality = 0;
+
+    for (int i = 0; i < len; i++)
+    {
+        dst.data[i] = a.data[i] & b.data[i];
+        dst.cardinality += bitsSet(dst.data[i]);
+    }
+
+    // TODO: convert to array if too few bits are set
+}
+
+__host__ __device__ void array_bitset_union(const Container& a, const Container& b, Container& dst)
+{
+    dst.clear();
+
+    if (a.cardinality == 0 && b.cardinality == 0)
+    {
+        return;
+    }
+
+    const Container& arr = a.type == ContainerType::Array ? a : b;
+    const Container& bitset = a.type == ContainerType::Bitset ? a : b;
+    uint16_t* arrayElements = (uint16_t*)arr.data;
+    assert(&arr != &bitset);
+    assert(dst.capacity >= bitset.capacity);
+
+    dst.type = ContainerType::Bitset;
+    memcpy(dst.data, bitset.data, bitset.capacity * sizeof(uint32_t));
+
+    int flips = 0;
+    for (int i = 0; i < arr.cardinality; i++)
+    {
+        uint16_t element = arrayElements[i];
+        int offset = element >> 5;
+        int bitpos = element & 0x1F;
+        dst.data[offset] |= 1 << bitpos;
+        flips += 1 - ((bitset.data[offset] & (1 << bitpos)) > 0);
+    }
+    dst.cardinality = bitset.cardinality + flips;
+}
+
+__host__ __device__ void array_bitset_intersect(const Container& a, const Container& b, Container& dst)
+{
+    dst.clear();
+
+    if (a.cardinality == 0 || b.cardinality == 0)
+    {
+        return;
+    }
+
+    const Container& arr = a.type == ContainerType::Array ? a : b;
+    const Container& bitset = a.type == ContainerType::Bitset ? a : b;
+    assert(&arr != &bitset);
+
+    dst.type = ContainerType::Array;
+    uint16_t* arrayElements = (uint16_t*)arr.data;
+    uint16_t* dstElements = (uint16_t*)dst.data;
+
+    int inc = 0;
+    for (int i = 0; i < arr.cardinality; i++)
+    {
+        uint16_t element = arrayElements[i];
+        int offset = element >> 5;
+        int bitpos = element & 0x1F;
+        if (bitset.data[offset] & (1 << bitpos))
+        {
+            dstElements[inc++] = element;
+        }
+    }
+    dst.cardinality = inc;
+}
+
+__host__ __device__ void array_array_union_bitset(const Container& a, const Container& b, Container& dst)
+{
+    dst.zero();
+    dst.type = ContainerType::Bitset;
+
+    uint16_t* aa = (uint16_t*)a.data;
+    uint16_t* bb = (uint16_t*)b.data;
+
+    int inc = 0;
+    for (int i = 0; i < a.cardinality; i++)
+    {
+        uint16_t element = aa[i];
+        int offset = element >> 5;
+        int bitpos = element & 0x1F;
+        inc += 1 - ((dst.data[offset] & (1 << bitpos)) > 0);
+        dst.data[offset] |= 1 << bitpos;
+    }
+
+    for (int i = 0; i < b.cardinality; i++)
+    {
+        uint16_t element = bb[i];
+        int offset = element >> 5;
+        int bitpos = element & 0x1F;
+        inc += 1 - ((dst.data[offset] & (1 << bitpos)) > 0);
+        dst.data[offset] |= 1 << bitpos;
+    }
+
+    dst.cardinality = inc;
+}
+
+__host__ __device__ void array_array_union(const Container& a, const Container& b, Container& dst)
+{
+    dst.clear();
+
+    if (a.cardinality == 0 && b.cardinality == 0)
+    {
+        return;
+    }
+
+    uint16_t* aa = (uint16_t*)a.data;
+    uint16_t* bb = (uint16_t*)b.data;
+
+    // if exceeds 65536 bits we will convert it to bitset container
+    int requiredCapacity = min(65536 / static_cast<int>(sizeof(uint32_t)), (a.cardinality + b.cardinality) * 2);
+    assert(dst.capacity >= requiredCapacity);
+
+    dst.type = ContainerType::Array;
+    dst.capacity = requiredCapacity;
+
+    uint16_t* dstElements = (uint16_t*)dst.data;
+    int i = 0, j = 0, k = 0;
+    while (i < a.cardinality && j < b.cardinality)
+    {
+        if (aa[i] == bb[j])
+        {
+            dstElements[k++] = aa[i];
+            i++;
+            j++;
+        }
+        else if (aa[i] < bb[j])
+        {
+            dstElements[k++] = aa[i++];
+        }
+        else
+        {
+            dstElements[k++] = bb[j++];
+        }
+
+        if (k == dst.capacity * 2)
+        {
+            array_array_union_bitset(a, b, dst);
+            return;
+        }
+    }
+
+    while (i < a.cardinality)
+    {
+        dstElements[k++] = aa[i++];
+        if (k == dst.capacity * 2)
+        {
+            array_array_union_bitset(a, b, dst);
+            return;
+        }
+    }
+
+    while (j < b.cardinality)
+    {
+        dstElements[k++] = bb[j++];
+        if (k == dst.capacity * 2)
+        {
+            array_array_union_bitset(a, b, dst);
+            return;
+        }
+    }
+
+    dst.cardinality = k;
+}
+
+__host__ __device__ void array_array_intersect(const Container& a, const Container& b, Container& dst)
+{
+    dst.clear();
+
+    if (a.cardinality == 0 || b.cardinality == 0)
+    {
+        return;
+    }
+
+    uint16_t* aa = (uint16_t*)a.data;
+    uint16_t* bb = (uint16_t*)b.data;
+    int requiredCapacity = min(a.cardinality + 1, b.cardinality + 1) >> 1;
+    assert(dst.capacity >= requiredCapacity);
+
+    dst.type = ContainerType::Array;
+    uint16_t* dstElements = (uint16_t*)dst.data;
+    int i = 0, j = 0, k = 0;
+    while (i < a.cardinality && j < b.cardinality)
+    {
+        if (aa[i] == bb[j])
+        {
+            dstElements[k++] = aa[i];
+            i++;
+            j++;
+        }
+        else if (aa[i] < bb[j])
+        {
+            i++;
+        }
+        else
+        {
+            j++;
+        }
+    }
+    dst.cardinality = k;
 }
 
 }  // namespace tora::roaring

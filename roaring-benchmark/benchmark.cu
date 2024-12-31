@@ -80,6 +80,41 @@ static void BitmapUnion(::benchmark::State& state)
 }
 BENCHMARK(BitmapUnion);
 
+
+static void BitmapIntersectPreAllocate(::benchmark::State& state)
+{
+    auto a = getRandomRoaringBitmap(0, 2048, 1024, 1024, 1024, 2048);
+    auto b = getRandomRoaringBitmap(0, 2048, 1024, 1024, 1024, 2048);
+    RoaringBitmapDevice result;
+
+    int threadsPerBlock = 64;
+    int blocksPerGrid = (2048 + threadsPerBlock - 1) / threadsPerBlock;
+
+    for (auto _ : state)
+    {
+        bitmapIntersect<<<blocksPerGrid, threadsPerBlock>>>(*a.devPtr(), *b.devPtr(), *result.devPtr());
+        cudaDeviceSynchronize();
+    }
+}
+BENCHMARK(BitmapIntersectPreAllocate);
+
+static void BitmapUnionPreAllocate(::benchmark::State& state)
+{
+    auto a = getRandomRoaringBitmap(0, 2048, 1024, 1024, 1024, 2048);
+    auto b = getRandomRoaringBitmap(0, 2048, 1024, 1024, 1024, 2048);
+    RoaringBitmapDevice result;
+
+    int threadsPerBlock = 64;
+    int blocksPerGrid = (2048 + threadsPerBlock - 1) / threadsPerBlock;
+
+    for (auto _ : state)
+    {
+        bitmapUnion<<<blocksPerGrid, threadsPerBlock>>>(*a.devPtr(), *b.devPtr(), *result.devPtr());
+        cudaDeviceSynchronize();
+    }
+}
+BENCHMARK(BitmapUnionPreAllocate);
+
 // BENCHMARK_MAIN();
 int main(int argc, char** argv)
 {
