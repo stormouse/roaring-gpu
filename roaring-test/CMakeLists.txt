@@ -24,3 +24,4 @@ set_target_properties(roaring-test PROPERTIES
 
 enable_testing()
 gtest_discover_tests(roaring-test)
+set(CTEST_CUSTOM_MAXIMUM_FAILED_TEST_OUTPUT_SIZE "1000000")

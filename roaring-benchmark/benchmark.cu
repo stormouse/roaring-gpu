@@ -24,27 +24,27 @@ static void BM_StringCopy(::benchmark::State& state)
 }
 BENCHMARK(BM_StringCopy);
 
-static void BitmapCreation(::benchmark::State& state)
-{        
-    std::random_device rd;
-    std::mt19937 mt(rd());
-    std::uniform_int_distribution<uint32_t> dist(0U, UINT32_MAX);
-    std::vector<int> indexesToQuery;
-    for (int i = 0; i < 1000; i++)
-    {
-        indexesToQuery.push_back(dist(mt));
-    }
-    auto bitmap = getRandomRoaringBitmap(0, 2048, 1024, 1024, 1024, 2048);
+// static void BitmapCreation(::benchmark::State& state)
+// {        
+//     std::random_device rd;
+//     std::mt19937 mt(rd());
+//     std::uniform_int_distribution<uint32_t> dist(0U, UINT32_MAX);
+//     std::vector<int> indexesToQuery;
+//     for (int i = 0; i < 1000; i++)
+//     {
+//         indexesToQuery.push_back(dist(mt));
+//     }
+//     auto bitmap = getRandomRoaringBitmap(0, 2048, 1024, 1024, 1024, 2048);
 
-    uint32_t numFlagsSet = 0;
-    uint32_t j = 0;
-    for (auto _ : state)
-    {
-        numFlagsSet += bitmap.getBit(j);
-        j = (j + 1) % indexesToQuery.size();
-    }
-}
-BENCHMARK(BitmapCreation);
+//     uint32_t numFlagsSet = 0;
+//     uint32_t j = 0;
+//     for (auto _ : state)
+//     {
+//         numFlagsSet += bitmap.getBit(j);
+//         j = (j + 1) % indexesToQuery.size();
+//     }
+// }
+// BENCHMARK(BitmapCreation);
 
 static void BitmapIntersect(::benchmark::State& state)
 {
@@ -104,7 +104,7 @@ static void BitmapIntersectPreAllocate(::benchmark::State& state)
 
     for (auto _ : state)
     {
-        bitmapIntersectInplace<<<blocksPerGrid, threadsPerBlock>>>(*a.devPtr(), *b.devPtr(), *intermediate.devPtr(), 0, 2048);
+        bitmapIntersectNoAlloc<<<blocksPerGrid, threadsPerBlock>>>(*a.devPtr(), *b.devPtr(), *intermediate.devPtr(), 0, 2048);
         cudaDeviceSynchronize();
     }
 
@@ -127,7 +127,7 @@ static void BitmapUnionPreAllocate(::benchmark::State& state)
 
     for (auto _ : state)
     {
-        bitmapUnionInplace<<<blocksPerGrid, threadsPerBlock>>>(*a.devPtr(), *b.devPtr(), *intermediate.devPtr(), 0, 2048);
+        bitmapUnionNoAlloc<<<blocksPerGrid, threadsPerBlock>>>(*a.devPtr(), *b.devPtr(), *intermediate.devPtr(), 0, 2048);
         cudaDeviceSynchronize();
     }
     

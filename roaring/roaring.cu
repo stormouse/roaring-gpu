@@ -6,12 +6,17 @@
 namespace tora::roaring
 {
 
-static const int BitmapFlatSize = 65536;
+static const int kBitmapFlatSize = 65536;
+
+__global__ void allocateFlatContainers(RoaringBitmapFlat& a);
+__global__ void initBitmapContainers(RoaringBitmapFlat* bitmap);
+__global__ void freeBitmapContainers(RoaringBitmapFlat* bitmap);
+__global__ void freeFlatContainers(RoaringBitmapFlat* a);
 
 RoaringBitmapDevice::RoaringBitmapDevice()
 {
     int threadsPerBlock = 256;
-    int blocksPerGrid = (BitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
+    int blocksPerGrid = (kBitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
     checkCuda(cudaMalloc((void**)&deviceData_, sizeof(RoaringBitmapFlat)));
     allocateFlatContainers<<<1, 1>>>(*deviceData_);
     initBitmapContainers<<<blocksPerGrid, threadsPerBlock>>>(deviceData_);
@@ -20,7 +25,7 @@ RoaringBitmapDevice::RoaringBitmapDevice()
 RoaringBitmapDevice::RoaringBitmapDevice(int stream)
 {
     int threadsPerBlock = 256;
-    int blocksPerGrid = (BitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
+    int blocksPerGrid = (kBitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
     checkCuda(cudaMalloc((void**)&deviceData_, sizeof(RoaringBitmapFlat)));
     allocateFlatContainers<<<1, 1>>>(*deviceData_);
     initBitmapContainers<<<blocksPerGrid, threadsPerBlock, stream>>>(deviceData_);
@@ -31,7 +36,7 @@ void RoaringBitmapDevice::free()
     if (deviceData_ != nullptr)
     {
         int threadsPerBlock = 256;
-        int blocksPerGrid = (BitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
+        int blocksPerGrid = (kBitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
         freeBitmapContainers<<<blocksPerGrid, threadsPerBlock>>>(deviceData_);
         freeFlatContainers<<<1, 1>>>(deviceData_);
         checkCuda(cudaFree(deviceData_));
@@ -55,7 +60,7 @@ __global__ void allocateFlatContainers(RoaringBitmapFlat& a)
 __global__ void initBitmapContainers(RoaringBitmapFlat* bitmap)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < BitmapFlatSize)
+    if (idx < kBitmapFlatSize)
     {
         bitmap->containers[idx].data = nullptr;
         bitmap->containers[idx].type = ContainerType::Array;
@@ -67,7 +72,7 @@ __global__ void initBitmapContainers(RoaringBitmapFlat* bitmap)
 __global__ void freeBitmapContainers(RoaringBitmapFlat* bitmap)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < BitmapFlatSize)
+    if (idx < kBitmapFlatSize)
     {
         if (bitmap->containers[idx].data != nullptr)
         {
@@ -93,7 +98,8 @@ __host__ __device__ inline constexpr int typePair(ContainerType a, ContainerType
 __global__ void bitmapUnion(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < BitmapFlatSize)
+    int step = gridDim.x * blockDim.x;
+    while (idx < kBitmapFlatSize)
     {
         const Container& c1 = a.containers[idx];
         const Container& c2 = b.containers[idx];
@@ -117,13 +123,15 @@ __global__ void bitmapUnion(const RoaringBitmapFlat& a, const RoaringBitmapFlat&
             }
             break;
         }
+        idx += step;
     }
 }
 
 __global__ void bitmapIntersect(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < BitmapFlatSize)
+    int step = gridDim.x * blockDim.x;
+    while (idx < kBitmapFlatSize)
     {
         const Container& c1 = a.containers[idx];
         const Container& c2 = b.containers[idx];
@@ -147,15 +155,17 @@ __global__ void bitmapIntersect(const RoaringBitmapFlat& a, const RoaringBitmapF
             }
             break;
         }
+        idx += step;
     }
 }
 
-__global__ void bitmapUnionInplace(
+__global__ void bitmapUnionNoAlloc(
     const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh)
 {
     int n = containerHigh - containerLow;
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < n)
+    int step = gridDim.x * blockDim.x;
+    while (idx < n)
     {
         int cIdx = idx + containerLow;
         const Container& c1 = a.containers[cIdx];
@@ -180,15 +190,17 @@ __global__ void bitmapUnionInplace(
             }
             break;
         }
+        idx += step;
     }
 }
 
-__global__ void bitmapIntersectInplace(
+__global__ void bitmapIntersectNoAlloc(
     const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh)
 {
     int n = containerHigh - containerLow;
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < n)
+    int step = gridDim.x * blockDim.x;
+    while (idx < n)
     {
         int cIdx = idx + containerLow;
         const Container& c1 = a.containers[cIdx];
@@ -213,24 +225,66 @@ __global__ void bitmapIntersectInplace(
             }
             break;
         }
+        idx += step;
     }
 }
 
-__global__ void bitmapGetBit(const RoaringBitmapFlat& a, uint32_t pos, bool* outValue)
+/// @brief Get cardinality of a flat roaring bitmap in GPU.
+/// @param bitmap
+/// @param outValue
+/// @param containerLow Lowest container index (will deprecate)
+/// @param containerHigh Highest container index (will deprecate)
+/// @return 
+__global__ void bitmapGetCardinality(const RoaringBitmapFlat& bitmap, uint32_t* outValue, int containerLow, int containerHigh)
+{
+    extern __shared__ uint32_t shared[];
+    int n = containerHigh - containerLow;
+    int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    int step = gridDim.x * blockDim.x;
+    
+    shared[threadIdx.x] = 0;
+    __syncthreads();
+    
+    while (idx < n)
+    {
+        int cIdx = containerLow + idx;
+        if (idx < 16) {
+            printf("cardinality(container_%d): %d\n", cIdx, bitmap.containers[cIdx].cardinality);
+        }
+        shared[threadIdx.x] += bitmap.containers[cIdx].cardinality;
+        idx += step;
+    }
+    
+    for (int k = blockDim.x >> 1; k > 0; k >>= 1)
+    {
+        if (threadIdx.x < k)
+        {
+            shared[threadIdx.x] += shared[threadIdx.x + k];
+        }
+        __syncthreads();
+    }
+
+    if (threadIdx.x == 0)
+    {
+        atomicAdd(outValue, shared[0]);
+    }
+}
+
+__global__ void bitmapGetBit(const RoaringBitmapFlat& bitmap, uint32_t pos, bool* outValue)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx == 0)
     {
-        *outValue = a.getBit(pos);
+        *outValue = bitmap.getBit(pos);
     }
 }
 
-__global__ void bitmapSetBit(RoaringBitmapFlat& a, uint32_t pos, bool value)
+__global__ void bitmapSetBit(RoaringBitmapFlat& bitmap, uint32_t pos, bool value)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx == 0)
     {
-        a.setBit(pos, value);
+        bitmap.setBit(pos, value);
     }
 }
 

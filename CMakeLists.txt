@@ -29,3 +29,7 @@ add_subdirectory(roaring-test)
 
 find_package(benchmark REQUIRED)
 add_subdirectory(roaring-benchmark)
+
+# ---- Example ---- #
+
+add_subdirectory(example)

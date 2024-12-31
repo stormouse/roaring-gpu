@@ -64,7 +64,7 @@ __global__ void buildRandomBitsetContainers(RoaringBitmapFlat* bitmap, int* cont
     while (idx < n)
     {
         curandState state;
-        curand_init(42, idx, 0, &state);
+        curand_init(clock(), idx, 0, &state);
 
         Container& dst = bitmap->containers[containerIndexes[idx]];
         dst.capacity = 2048;

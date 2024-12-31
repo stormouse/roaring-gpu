@@ -36,6 +36,7 @@ public:
     }
 
     inline RoaringBitmapFlat* devPtr() { return deviceData_; }
+    inline RoaringBitmapFlat& dev() { return *deviceData_; }
     bool getBit(uint32_t pos);
     void setBit(uint32_t pos, bool value);
 
@@ -44,18 +45,12 @@ private:
     void free();
 };
 
-__global__ void allocateFlatContainers(RoaringBitmapFlat& a);
-__global__ void initBitmapContainers(RoaringBitmapFlat* bitmap);
-__global__ void freeBitmapContainers(RoaringBitmapFlat* bitmap);
-__global__ void freeFlatContainers(RoaringBitmapFlat* a);
-
-RoaringBitmapFlat* createBitmap();
-
 __global__ void bitmapUnion(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t);
 __global__ void bitmapIntersect(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t);
-__global__ void bitmapUnionInplace(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh);
-__global__ void bitmapIntersectInplace(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh);
-__global__ void bitmapGetBit(const RoaringBitmapFlat& a, uint32_t pos, bool* outValue);
-__global__ void bitmapSetBit(RoaringBitmapFlat& a, uint32_t pos, bool value);
+__global__ void bitmapUnionNoAlloc(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh);
+__global__ void bitmapIntersectNoAlloc(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh);
+__global__ void bitmapGetCardinality(const RoaringBitmapFlat& bitmap, uint32_t* outValue, int containerLow, int containerHigh);
+__global__ void bitmapGetBit(const RoaringBitmapFlat& bitmap, uint32_t pos, bool* outValue);
+__global__ void bitmapSetBit(RoaringBitmapFlat& bitmap, uint32_t pos, bool value);
 
 }  // namespace tora::roaring
