@@ -10,6 +10,20 @@
 namespace tora::roaring
 {
 
+__global__ void initializeIntermediateResultContainers(RoaringBitmapFlat* bitmap, int containerLow, int containerHigh)
+{
+    int n = containerHigh - containerLow;
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    int step = gridDim.x * blockDim.x;
+    while (idx < n)
+    {
+        bitmap->containers[containerLow + idx].data = (uint32_t*)custom_malloc(65536);
+        bitmap->containers[containerLow + idx].capacity = 8192;
+        bitmap->containers[containerLow + idx].cardinality = 0;
+        idx += step;
+    }
+}
+
 __global__ void buildRandomArrayContainers(
     RoaringBitmapFlat* bitmap, int* containerIndexes, int n, int arrayElementLow, int arrayElementHigh)
 {
@@ -140,6 +154,14 @@ RoaringBitmapDevice getRandomRoaringBitmap(
 
     cudaDeviceSynchronize();
 
+    return bitmap;
+}
+
+
+RoaringBitmapDevice getIntermediateBitmap(int containerLow, int containerHigh)
+{
+    RoaringBitmapDevice bitmap;
+    initializeIntermediateResultContainers<<<256, 64>>>(bitmap.devPtr(), containerLow, containerHigh);
     return bitmap;
 }
 

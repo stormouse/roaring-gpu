@@ -377,7 +377,6 @@ __host__ __device__ void array_array_union(const Container& a, const Container& 
     assert(dst.capacity >= requiredCapacity);
 
     dst.type = ContainerType::Array;
-    dst.capacity = requiredCapacity;
 
     uint16_t* dstElements = (uint16_t*)dst.data;
     int i = 0, j = 0, k = 0;

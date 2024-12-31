@@ -150,6 +150,72 @@ __global__ void bitmapIntersect(const RoaringBitmapFlat& a, const RoaringBitmapF
     }
 }
 
+__global__ void bitmapUnionInplace(
+    const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh)
+{
+    int n = containerHigh - containerLow;
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < n)
+    {
+        int cIdx = idx + containerLow;
+        const Container& c1 = a.containers[cIdx];
+        const Container& c2 = b.containers[cIdx];
+        switch (typePair(c1.type, c2.type))
+        {
+            case typePair(ContainerType::Bitset, ContainerType::Bitset):
+            {
+                bitset_bitset_union(c1, c2, t.containers[cIdx]);
+            }
+            break;
+
+            case typePair(ContainerType::Bitset, ContainerType::Array):
+            {
+                array_bitset_union(c1, c2, t.containers[cIdx]);
+            }
+            break;
+
+            case typePair(ContainerType::Array, ContainerType::Array):
+            {
+                array_array_union(c1, c2, t.containers[cIdx]);
+            }
+            break;
+        }
+    }
+}
+
+__global__ void bitmapIntersectInplace(
+    const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh)
+{
+    int n = containerHigh - containerLow;
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < n)
+    {
+        int cIdx = idx + containerLow;
+        const Container& c1 = a.containers[cIdx];
+        const Container& c2 = b.containers[cIdx];
+        switch (typePair(c1.type, c2.type))
+        {
+            case typePair(ContainerType::Bitset, ContainerType::Bitset):
+            {
+                bitset_bitset_intersect(c1, c2, t.containers[cIdx]);
+            }
+            break;
+
+            case typePair(ContainerType::Bitset, ContainerType::Array):
+            {
+                array_bitset_intersect(c1, c2, t.containers[cIdx]);
+            }
+            break;
+
+            case typePair(ContainerType::Array, ContainerType::Array):
+            {
+                array_array_intersect(c1, c2, t.containers[cIdx]);
+            }
+            break;
+        }
+    }
+}
+
 __global__ void bitmapGetBit(const RoaringBitmapFlat& a, uint32_t pos, bool* outValue)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;

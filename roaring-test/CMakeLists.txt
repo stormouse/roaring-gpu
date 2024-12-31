@@ -3,6 +3,7 @@ add_executable(
     bitop.cu
     container.cu
     bitmap.cu
+    roaring_gpu.cu
 )
 
 target_include_directories(

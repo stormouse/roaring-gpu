@@ -1,7 +1,9 @@
-#include <iostream>
+#include <gtest/gtest.h>
 #include <cuda_common.cuh>
-#include <roaring.cuh>
 #include <memory.cuh>
+#include <random>
+#include <roaring.cuh>
+#include <roaring_helper.cuh>
 
 using namespace tora::roaring;
 
@@ -15,11 +17,9 @@ __global__ void printContainerInfo(const RoaringBitmapFlat& bitmap, int containe
 
 void testBitmapUnion()
 {
-    static const int BitmapFlatSize = 65536;
-
     RoaringBitmapDevice bitmap1;
     RoaringBitmapDevice bitmap2;
-    RoaringBitmapDevice result;
+    RoaringBitmapDevice result = getIntermediateBitmap(0, 8);
 
     for (int i = 0; i < 8; i++)
     {
@@ -30,23 +30,27 @@ void testBitmapUnion()
     printContainerInfo<<<1, 1>>>(*bitmap1.devPtr(), 1);
     printContainerInfo<<<1, 1>>>(*bitmap2.devPtr(), 1);
 
-    int threadsPerBlock = 256;
-    int blocksPerGrid = (BitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
+    int threadsPerBlock = 16;
+    int blocksPerGrid = 16;
 
-    bitmapUnion<<<blocksPerGrid, threadsPerBlock>>>(*bitmap1.devPtr(), *bitmap2.devPtr(), *result.devPtr());
+    bitmapUnionInplace<<<blocksPerGrid, threadsPerBlock>>>(
+        *bitmap1.devPtr(), *bitmap2.devPtr(), *result.devPtr(), 0, 8);
 
     printContainerInfo<<<1, 1>>>(*result.devPtr(), 1);
 
     cudaDeviceSynchronize();
 }
 
+TEST(RoaringGpu, BitmapUnion)
+{
+    testBitmapUnion();
+}
+
 void testBitmapIntersect()
 {
-    static const int BitmapFlatSize = 65536;
-
     RoaringBitmapDevice bitmap1;
     RoaringBitmapDevice bitmap2;
-    RoaringBitmapDevice result;
+    RoaringBitmapDevice result = getIntermediateBitmap(0, 8);
 
     for (int i = 0; i < 8; i++)
     {
@@ -57,14 +61,20 @@ void testBitmapIntersect()
     printContainerInfo<<<1, 1>>>(*bitmap1.devPtr(), 1);
     printContainerInfo<<<1, 1>>>(*bitmap2.devPtr(), 1);
 
-    int threadsPerBlock = 256;
-    int blocksPerGrid = (BitmapFlatSize + threadsPerBlock - 1) / threadsPerBlock;
+    int threadsPerBlock = 16;
+    int blocksPerGrid = 16;
 
-    bitmapIntersect<<<blocksPerGrid, threadsPerBlock>>>(*bitmap1.devPtr(), *bitmap2.devPtr(), *result.devPtr());
+    bitmapIntersectInplace<<<blocksPerGrid, threadsPerBlock>>>(
+        *bitmap1.devPtr(), *bitmap2.devPtr(), *result.devPtr(), 0, 8);
 
     printContainerInfo<<<1, 1>>>(*result.devPtr(), 1);
 
     cudaDeviceSynchronize();
+}
+
+TEST(RoaringGpu, BitmapIntersect)
+{
+    testBitmapIntersect();
 }
 
 struct DeviceObject
@@ -94,7 +104,6 @@ __global__ void createString2(DeviceObject& devObj)
     devObj.deviceData[5] = '\0';
 }
 
-
 __global__ void printString(const DeviceObject& devObj)
 {
     printf("%s\n", devObj.deviceData);
@@ -110,9 +119,9 @@ void malloc_test1()
     DeviceObject* devObj;
     checkCuda(cudaMalloc((void**)&devObj, sizeof(DeviceObject)));
 
-    createString1<<<1,1>>>(*devObj);
-    printString<<<1,1>>>(*devObj);
-    freeString<<<1,1>>>(*devObj);
+    createString1<<<1, 1>>>(*devObj);
+    printString<<<1, 1>>>(*devObj);
+    freeString<<<1, 1>>>(*devObj);
 }
 
 void malloc_test2()
@@ -120,7 +129,7 @@ void malloc_test2()
     DeviceObject* devObj;
     checkCuda(cudaMalloc((void**)&devObj, sizeof(DeviceObject)));
 
-    createString2<<<1,1>>>(*devObj);
-    printString<<<1,1>>>(*devObj);
-    freeString<<<1,1>>>(*devObj);
+    createString2<<<1, 1>>>(*devObj);
+    printString<<<1, 1>>>(*devObj);
+    freeString<<<1, 1>>>(*devObj);
 }

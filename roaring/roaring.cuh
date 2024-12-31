@@ -53,6 +53,8 @@ RoaringBitmapFlat* createBitmap();
 
 __global__ void bitmapUnion(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t);
 __global__ void bitmapIntersect(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t);
+__global__ void bitmapUnionInplace(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh);
+__global__ void bitmapIntersectInplace(const RoaringBitmapFlat& a, const RoaringBitmapFlat& b, RoaringBitmapFlat& t, int containerLow, int containerHigh);
 __global__ void bitmapGetBit(const RoaringBitmapFlat& a, uint32_t pos, bool* outValue);
 __global__ void bitmapSetBit(RoaringBitmapFlat& a, uint32_t pos, bool value);
 
