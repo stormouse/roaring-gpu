@@ -248,9 +248,6 @@ __global__ void bitmapGetCardinality(const RoaringBitmapFlat& bitmap, uint32_t* 
     while (idx < n)
     {
         int cIdx = containerLow + idx;
-        if (idx < 16) {
-            printf("cardinality(container_%d): %d\n", cIdx, bitmap.containers[cIdx].cardinality);
-        }
         shared[threadIdx.x] += bitmap.containers[cIdx].cardinality;
         idx += step;
     }
